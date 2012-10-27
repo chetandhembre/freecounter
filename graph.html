@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+
+		<!-- Always force latest IE rendering engine (even in intranet) & Chrome Frame
+		Remove this if you use the .htaccess -->
+		<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" />
+
+		<title>HTML</title>
+		<meta name="description" content="" />
+		<meta name="author" content="ChetanD" />
+
+		<meta name="viewport" content="width=device-width; initial-scale=1.0" />
+
+		<!-- Replace favicon.ico & apple-touch-icon.png in the root of your domain and delete these references -->
+		<link rel="shortcut icon" href="/favicon.ico" />
+		<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+		<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.8.2/jquery.min.js"></script>
+		<style type="text/css">
+			#graph_area{
+				display: none;
+			}
+			
+			#tweet_count{
+				float: left;
+				height: 300px;
+				margin-right: 10px;
+				position: relative;
+			}
+			
+			#tweet_count div{
+				height: 60px;
+				position: relative;
+			}
+			
+			#graph{
+				width:650px;
+				height: 300px;
+				border-left: 1px solid black;
+				border-bottom: 1px solid black;
+				position: relative;
+				float: left
+			}
+			
+			.column{
+				width:30px;
+				height: 100%;
+				margin-left: 20px;
+				float: left;
+				position:relative;
+			}
+			
+			.column label{
+				
+				position: absolute;
+				width: 100%;
+				text-align: center;
+			}
+			
+			.column div{
+				 width: 100%;
+				 height: 70%;
+				 background: red;
+				 position: absolute;
+				 bottom: 0;
+			}
+			
+			#xaxis{
+				width:650px;
+				height:50px;
+				margin-left: 25px;
+			}
+			
+			#xaxis div{
+				width:30px;
+				height: 100%;
+				margin-left: 20px;
+				float: left;
+			}
+			
+			
+		</style>
+		
+		<script type="application/javascript">
+        	function oauth(){
+        		document.getElementById("graph_area").style.display="none"
+        		var handle=$("#handle").val()
+        		 if(handle.indexOf('@')==0);
+        		 else handle="@"+handle;
+        		 
+        		var tweet_count=[];
+        		
+        		if(handle.match(/@([A-Za-z0-9_]+$)/)==null){
+        			alert("Handle invalid")
+        			$("#handle").val("");
+        		}
+        		else{
+		        		var url="https://api.twitter.com/1/statuses/user_timeline.json?include_entities=true&include_rts=true&screen_name="+handle+"&count=50";
+		        		//get request to twitter api
+		        		$.getJSON(url+"&callback=?",  function (data) {
+							console.log(data)
+							if(data.errors!=undefined){ 
+								alert("Twitter handle invalid");
+								document.getElementById("graph_area").style.display="none"
+							}
+							else{
+								document.getElementById("graph_area").style.display="block"
+									var date=new Date(getExactdate((new Date()).toString()));
+									tweet_count=[];                                                 //array to hold info abt tweets from last 12 ours
+									for(var i=0;i<12;i++){
+										var obj=new Object();
+										obj.time_period=findperiod(i,date);                        //at start only determine x-axix value
+										obj.hd=0;
+										tweet_count[i]=obj;
+										
+									}
+									 for(var i=0;i<data.length && i < 50;i++){
+									    var created_at=data[i].created_at;
+									    created_at=new Date(created_at);
+									   
+									   //finding hour diffrence between tweeted time and current time
+									    var hourdifference=Math.floor(((date-created_at)/1000/60/60));             
+									    //console.log(hourdifference);   
+									     if(hourdifference>=12){                      //if i start getting tweets which are older than 12 hours stop processing tweets
+									     	break;
+									     }
+									     
+									    //console.log(hourdifference)	
+									    if(hourdifference > -1 && hourdifference < 12)			     
+									     tweet_count[hourdifference].hd++;
+									    
+									 }
+									 
+								//	 console.log(tweet_count);
+									 plotgraph(tweet_count)                             //plot column graph
+						}	 
+						}).fail(function(jqXHR, textStatus, errorThrown) {
+		    				  alert(textStatus + ": " + errorThrown);
+							});
+						
+			}  
+        }
+        	
+        	//this is function will use find X-axis value(time)
+        	function findperiod(hd,date){
+        		var date_hour=date.getHours();
+        		var right_limit=(24+(date_hour-hd))%24;
+        		var left_limit=(24+(right_limit-1))%24
+        		console.log(ampm(left_limit)+"-"+ampm(right_limit));
+        		return ampm(left_limit)+"-"+ampm(right_limit); 
+        		 
+        		  
+        	}
+        	
+        	
+        	//this is use to get "am" ot "pm"
+        	function ampm(time){
+        		if(time>=0 && time <12) time+="am";
+        		else time+="pm";
+        		return time
+        	}
+        	
+        	
+        	//actual ploting of graph 
+        	function plotgraph(tweet_count){
+        		var total_height=$("#tweet_count").height();
+        		var mark_height=renderyaxis(50,10,total_height);
+        		renderxaxix(tweet_count,12);
+        		var maindiv=document.getElementById("graph");
+        		maindiv.innerHTML="";
+        		for(var i=11;i>=0;i--){
+        				
+        				
+        				/*
+        				 * <div class="column"><label >75</label><div></div></div>
+        				 */
+        				
+        				var divtag=document.createElement("div");
+        				divtag.className="column";
+        				var labeltag=document.createElement('label');
+        				labeltag.innerHTML=tweet_count[i].hd;
+        				
+        				
+        				var divtag1=document.createElement("div");
+        				var h=Math.floor(tweet_count[i].hd/10)*mark_height;
+        				/*
+        				 * this is logic behind specifiing hit of column depends on number of tweets in tht hour and max tweet might occurs is 50
+        				 */
+        				h+=((tweet_count[i].hd%10)/10)*mark_height;                  
+        			    divtag1.style.height=h+"px";
+        			    var lh=((300-h)-20)
+        			    labeltag.setAttribute("style", "margin-top:" + lh +"px");
+        			     if(tweet_count[i].hd!=0)
+	        			    divtag.appendChild(labeltag);
+	        			    	
+        			    divtag.appendChild(divtag1);
+        			    maindiv.appendChild(divtag);
+        				
+        				
+        			
+        		}
+//        		console.log(maindiv)
+        	}
+        	
+        	
+        	//this is function which plot y-axix value i.e. tweet count
+        	function renderyaxis(max_tweet,margin,total_height){
+        		var maindiv=document.getElementById("tweet_count");
+        		maindiv.innerHTML="";
+        		
+        		var mark_height=total_height/(max_tweet/margin);
+        		console.log(mark_height+":"+total_height)
+        		//var maindiv=document.getElementById("tweet_count");
+        		
+        		 for(var i=0;i<=(max_tweet/margin);i++){
+        		 	
+        		 	var divtag=document.createElement("div");
+        		 	divtag.style.height=mark_height+"px";
+        		 	divtag.innerHTML=(max_tweet)-margin*i;
+        		 	//$('div').height(mark_height+"px").text((max_tweet)-margin*i).appendTo('#tweet_count');
+        		 	maindiv.appendChild(divtag);
+        		 }
+        		
+        		return mark_height;
+        	}
+        	
+        	//this is function use to get floor of current time i.e. 9.30 equivalent to 9 as specify in problem statement
+        	function getExactdate(date){
+        		var date=date.split(' ');
+        		var date1=date[4].split(':');
+        		date[4]=date1[0]+":0:0";
+        		return date.join(' ');
+        	}
+        	
+        	//plot x-axix co-ordinates (time)
+        	function renderxaxix(tweet_count,total){
+        		var maindiv=document.getElementById("xaxis");
+        		maindiv.innerHTML="";
+        		/*
+        		 *     <div >1pm-2pm</div>
+        		 */
+        	  for(var i=tweet_count.length-1;i>=0;i--){
+        	  	var divtag=document.createElement("div");
+        	  	divtag.innerHTML=tweet_count[i].time_period;
+        	  	 if(i==Math.floor((total)/2)){
+        	  	   divtag.innerHTML+="<br /><br />Time";      	
+        	  	 }
+        	  	 
+        	  	 maindiv.appendChild(divtag);
+        	  }	
+        	  
+        	}
+        	
+        	window.oauth=oauth();
+        </script>
+	</head>
+
+	<body>
+		
+		<input type="text" id="handle" placeholder="twitter handle"/>
+        <input type="button" onclick="window.oauth()" value="Go!!"/>
+        <br />
+        
+        <div id="graph_area">
+        <div>Tweet Count</div>
+		<div id="tweet_count"> </div>
+		<div id="graph"></div>
+        <br />
+        <div id="xaxis"></div>
+        </div>
+   	</body>
+</html>
